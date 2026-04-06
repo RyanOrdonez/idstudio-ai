@@ -154,7 +154,23 @@ IDStudio.Ai/
 ## Branches
 
 - **`main`** (active) — single Next.js 14 app, the architecture documented above. All current development happens here.
-- **`claude/rewrite-commit-author-0m219`** (archived reference) — an alternate monorepo direction (apps/api Fastify + apps/ai-worker + apps/desktop Tauri + packages/ui, Turborepo, pnpm workspaces). Contains ~17 commits of epic work (IDS-3 through IDS-18). Not merged into main and not on the current roadmap; kept as a reference for the monorepo direction in case it is revived.
+
+## Reference Material
+
+`reference/` contains preserved code from an abandoned monorepo branch (April 2026). It is **not part of the build** — excluded from TypeScript and ESLint, never imported. It's saved as prior art so future features don't have to start from a blank page.
+
+**Phase plan checkpoints — review the relevant subfolder before starting these tasks:**
+
+| When you're working on | Check this reference | Why |
+|---|---|---|
+| **Phase 5** — any new AI tool in `/api/chat` or expanding document/proposal generation | `reference/ai-worker/src/prompts/v1/` | Pre-written Claude prompts for proposals, design suggestions, budget forecasting, scheduling, image gen — copy the prompt text, not the architecture |
+| **Phase 5** — any new Supabase table or RLS policy | `reference/db-prisma/prisma/` | Schema design for tenants, projects, tasks, budgets, vendors, client portal + reusable RLS patterns |
+| **Phase 6** — deployment | nothing in reference applies; main is correctly scoped for Vercel + Supabase | — |
+| **Post-MVP** — Gemini image generation (Phase plan currently says "DON'T BUILD YET") | `reference/ai-worker/src/prompts/v1/geminiImageGeneration.ts` + `src/workers/geminiImageGeneration.ts` | Prompt structure and worker pattern for room renders / style transfer |
+| **Post-MVP** — client portal (separate client login) | `reference/db-prisma/prisma/migrations/003_client_portal/` | Schema design for client portal access |
+| **Post-MVP** — long-running AI jobs (>60s, batch processing) | `reference/ai-worker/` whole tree | Worker + queue patterns. **Use Trigger.dev or Inngest, not raw Redis** — read the worker code as logic reference only |
+
+See `reference/README.md` for the full inventory and ground rules.
 
 ## License
 

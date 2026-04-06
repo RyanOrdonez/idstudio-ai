@@ -1,0 +1,25 @@
+# syntax=docker/dockerfile:1
+# Development Dockerfile for the ai-worker service.
+# Intended for use with docker-compose; source is bind-mounted at runtime.
+
+FROM node:20-alpine
+
+RUN apk add --no-cache libc6-compat
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+# Copy only package manifests first to leverage layer caching
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/ai-worker/package.json ./apps/ai-worker/
+COPY packages/ ./packages/
+
+# Install all dependencies (including dev tools)
+RUN pnpm install
+
+# The rest of the source is expected to be bind-mounted by docker-compose,
+# so we do not COPY it here. This keeps the image lean and allows hot-reload.
+
+CMD ["pnpm", "--filter", "ai-worker", "dev"]
