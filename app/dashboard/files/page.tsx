@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
 import { motion } from 'framer-motion'
@@ -49,6 +49,27 @@ export default function DashboardFiles() {
   const [search, setSearch] = useState('')
   const [dragActive, setDragActive] = useState(false)
 
+  const fetchFiles = useCallback(async () => {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('files')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (!error) setFiles(data || [])
+    setLoading(false)
+  }, [])
+
+  const fetchProjects = useCallback(async () => {
+    if (!user) return
+    const { data, error } = await supabase
+      .from('projects')
+      .select('id, project_name, archived')
+      .order('project_name')
+    if (!error) {
+      setProjects((data || []).filter((p) => !p.archived))
+    }
+  }, [user])
+
   useEffect(() => {
     if (user) {
       fetchFiles()
@@ -71,28 +92,7 @@ export default function DashboardFiles() {
       setProjects([{ id: 'sample-project-1', project_name: 'Modern Living Room Redesign' }])
       setLoading(false)
     }
-  }, [user])
-
-  const fetchFiles = async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('files')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (!error) setFiles(data || [])
-    setLoading(false)
-  }
-
-  const fetchProjects = async () => {
-    if (!user) return
-    const { data, error } = await supabase
-      .from('projects')
-      .select('id, project_name, archived')
-      .order('project_name')
-    if (!error) {
-      setProjects((data || []).filter((p) => !p.archived))
-    }
-  }
+  }, [user, fetchFiles, fetchProjects])
 
   const handleFileUpload = async (fileList: FileList) => {
     if (!user) return

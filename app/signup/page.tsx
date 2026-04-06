@@ -52,8 +52,8 @@ export default function Signup() {
       }
 
       router.push('/login?registered=true')
-    } catch (err: any) {
-      setError(err?.message || 'An unexpected error occurred')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
     }
   }
 

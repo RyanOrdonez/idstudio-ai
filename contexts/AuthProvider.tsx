@@ -17,8 +17,8 @@ interface AuthContextType {
   user: UserDetails | null
   session: Session | null
   isLoading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: any }>
-  signUp: (firstName: string, lastName: string, email: string, password: string) => Promise<{ error: any }>
+  signIn: (email: string, password: string) => Promise<{ error: { message: string } | null }>
+  signUp: (firstName: string, lastName: string, email: string, password: string) => Promise<{ error: { message: string } | null; needsConfirmation?: boolean }>
   signOut: () => Promise<void>
 }
 
@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string, password: string) => {
     setIsLoading(true)
 
-    console.log('[Auth] Attempting sign in for:', email)
+    if (process.env.NODE_ENV === 'development') console.log('[Auth] Attempting sign in for:', email)
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -136,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) {
       console.error('[Auth] Sign in error:', error.message, error.status, JSON.stringify(error))
     } else {
-      console.log('[Auth] Sign in success, user:', data?.user?.id)
+      if (process.env.NODE_ENV === 'development') console.log('[Auth] Sign in success, user:', data?.user?.id)
     }
 
     setIsLoading(false)
@@ -149,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true)
     
     try {
-      console.log('[Auth] Attempting sign up for:', email)
+      if (process.env.NODE_ENV === 'development') console.log('[Auth] Attempting sign up for:', email)
       isSigningUp.current = true
 
       // Create the user account
@@ -172,16 +172,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error }
       }
 
-      console.log('[Auth] Sign up response:', {
-        userId: data?.user?.id,
-        emailConfirmedAt: data?.user?.email_confirmed_at,
-        identities: data?.user?.identities?.length,
-        session: !!data?.session,
-      })
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Auth] Sign up response:', {
+          userId: data?.user?.id,
+          emailConfirmedAt: data?.user?.email_confirmed_at,
+          identities: data?.user?.identities?.length,
+          session: !!data?.session,
+        })
+      }
 
       // Check if email confirmation is required (no session returned)
       if (data?.user && !data?.session) {
-        console.log('[Auth] Email confirmation required — no session returned')
+        if (process.env.NODE_ENV === 'development') console.log('[Auth] Email confirmation required — no session returned')
         setIsLoading(false)
         return {
           error: {
@@ -193,7 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Check if user already exists (identities array is empty)
       if (data?.user?.identities?.length === 0) {
-        console.log('[Auth] User already exists')
+        if (process.env.NODE_ENV === 'development') console.log('[Auth] User already exists')
         setIsLoading(false)
         return {
           error: { message: 'An account with this email already exists. Please sign in.' },
@@ -216,7 +218,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (profileError) {
             console.error('[Auth] Error creating profile:', profileError)
           } else {
-            console.log('[Auth] Profile created successfully')
+            if (process.env.NODE_ENV === 'development') console.log('[Auth] Profile created successfully')
           }
         } catch (profileError) {
           console.error('[Auth] Error creating profile:', profileError)

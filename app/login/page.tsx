@@ -58,9 +58,9 @@ export default function Login() {
       setSuccess('Welcome back! Redirecting to your dashboard...')
       redirectTimer.current = setTimeout(() => { router.push('/dashboard') }, 1200)
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[Login] Exception:', err)
-      setError(err?.message || 'An unexpected error occurred.')
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred.')
       setIsSubmitting(false)
     }
   }

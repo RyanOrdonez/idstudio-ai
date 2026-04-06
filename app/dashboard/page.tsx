@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
@@ -57,7 +57,7 @@ export default function Dashboard() {
     }
   }
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     setIsLoading(true)
     
     if (user) {
@@ -170,11 +170,11 @@ export default function Dashboard() {
     }
     
     setIsLoading(false)
-  }
+  }, [user])
 
   useEffect(() => {
     fetchDashboardData()
-  }, [user])
+  }, [fetchDashboardData])
 
   const statCards = [
     {

@@ -17,6 +17,13 @@ interface CreditStatus {
   unlimited: boolean
 }
 
+export type CanvasContent =
+  | { type: 'document'; title: string; html: string }
+  | { type: 'email'; to?: string; subject?: string; body?: string }
+  | { type: 'mood_board'; title: string; description?: string; imageUrl?: string; revisedPrompt?: string }
+  | { type: 'rendering'; imageUrl?: string }
+  | { type: 'file_viewer'; fileName: string; fileUrl: string; fileType?: string }
+
 interface AppState {
   // AI Chat Panel
   isChatOpen: boolean
@@ -44,8 +51,8 @@ interface AppState {
   toggleSidebar: () => void
 
   // Work Canvas
-  canvasContent: any | null
-  setCanvasContent: (content: any) => void
+  canvasContent: CanvasContent | null
+  setCanvasContent: (content: CanvasContent) => void
   clearCanvas: () => void
 }
 

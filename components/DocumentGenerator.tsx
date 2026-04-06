@@ -2,8 +2,15 @@
 
 import { useState } from 'react'
 
+interface GeneratedDocumentResult {
+  success: boolean
+  document?: string
+  html?: string
+  error?: string
+}
+
 interface DocumentGeneratorProps {
-  onDocumentGenerated: (document: any) => void
+  onDocumentGenerated: (result: GeneratedDocumentResult) => void
 }
 
 interface ProjectData {
@@ -96,7 +103,7 @@ export default function DocumentGenerator({ onDocumentGenerated }: DocumentGener
                 name="documentType"
                 value={type.value}
                 checked={documentType === type.value}
-                onChange={(e) => setDocumentType(e.target.value as any)}
+                onChange={(e) => setDocumentType(e.target.value as 'proposal' | 'contract' | 'invoice')}
                 className="mr-2"
               />
               <span className="text-sm text-neutral-700">{type.label}</span>

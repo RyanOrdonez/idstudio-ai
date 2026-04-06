@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
@@ -127,7 +127,7 @@ function ProductLibrary() {
   const [formNotes, setFormNotes] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     if (!user) return
     setIsLoading(true)
     try {
@@ -152,9 +152,9 @@ function ProductLibrary() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [user, categoryFilter])
 
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     if (!user) return
     const { data } = await supabase
       .from('projects')
@@ -162,12 +162,12 @@ function ProductLibrary() {
       .or('archived.is.null,archived.eq.false')
       .order('project_name')
     setProjects(data || [])
-  }
+  }, [user])
 
   useEffect(() => {
     fetchProducts()
     fetchProjects()
-  }, [user, categoryFilter])
+  }, [fetchProducts, fetchProjects])
 
   const resetForm = () => {
     setFormUrl('')

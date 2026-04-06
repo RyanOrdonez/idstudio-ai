@@ -14,8 +14,7 @@ export default function ContactPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Handle form submission here
-    console.log('Form submitted:', formData)
+    // TODO: Wire up to Resend or backend endpoint
     alert('Thank you for your message! We\'ll get back to you soon.')
     setFormData({ name: '', email: '', company: '', message: '' })
   }

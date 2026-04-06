@@ -1,7 +1,9 @@
 'use client'
 
+import type { CanvasContent } from '@/stores/useAppStore'
+
 interface WorkCanvasProps {
-  content: any
+  content: CanvasContent | null
 }
 
 export default function WorkCanvas({ content }: WorkCanvasProps) {
