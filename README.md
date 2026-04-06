@@ -121,6 +121,7 @@ IDStudio.Ai/
 - [x] Draggable chat panel resize (340px–700px)
 - [x] Auto-expanding textarea input with reset on send
 - [x] Duplicate client prevention (list_clients before create, update_client tool)
+- [x] Server-side route protection via middleware (cookie-based Supabase client, redirect-after-login on `/dashboard`, `/projects`, `/clients`, `/files`)
 
 ### AI Chat — Future Revisions
 - [ ] **Chat memory** — persist conversation history across sessions (Supabase storage per user)
@@ -149,6 +150,11 @@ IDStudio.Ai/
 - [ ] Pricing tier enforcement ($49 / $149 / $299)
 - [ ] Email notifications (Resend)
 - [ ] Team collaboration features
+
+## Branches
+
+- **`main`** (active) — single Next.js 14 app, the architecture documented above. All current development happens here.
+- **`claude/rewrite-commit-author-0m219`** (archived reference) — an alternate monorepo direction (apps/api Fastify + apps/ai-worker + apps/desktop Tauri + packages/ui, Turborepo, pnpm workspaces). Contains ~17 commits of epic work (IDS-3 through IDS-18). Not merged into main and not on the current roadmap; kept as a reference for the monorepo direction in case it is revived.
 
 ## License
 
