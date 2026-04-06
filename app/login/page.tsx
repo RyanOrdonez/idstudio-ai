@@ -56,7 +56,8 @@ export default function Login() {
       }
       
       setSuccess('Welcome back! Redirecting to your dashboard...')
-      redirectTimer.current = setTimeout(() => { router.push('/dashboard') }, 1200)
+      const redirectTo = searchParams.get('redirect') || '/dashboard'
+      redirectTimer.current = setTimeout(() => { router.push(redirectTo) }, 1200)
       
     } catch (err: unknown) {
       console.error('[Login] Exception:', err)

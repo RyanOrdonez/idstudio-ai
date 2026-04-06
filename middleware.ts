@@ -37,8 +37,27 @@ export async function middleware(req: NextRequest) {
   const supabase = createMiddlewareClient({ req, res });
   const { data: { session } } = await supabase.auth.getSession();
 
+  const pathname = req.nextUrl.pathname;
+  const isProtectedRoute = pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/projects') ||
+    pathname.startsWith('/clients') ||
+    pathname.startsWith('/files');
+  const isAuthRoute = pathname === '/login' || pathname === '/signup';
+
+  // Redirect unauthenticated users away from protected routes
+  if (!session && isProtectedRoute) {
+    const loginUrl = new URL('/login', req.url);
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Redirect authenticated users away from login/signup to dashboard
+  if (session && isAuthRoute) {
+    return NextResponse.redirect(new URL('/dashboard', req.url));
+  }
+
   // Auto-create trial subscription for new authenticated users
-  if (session?.user && req.nextUrl.pathname.startsWith('/dashboard')) {
+  if (session?.user && pathname.startsWith('/dashboard')) {
     try {
       const { data: subscription } = await supabase
         .from('subscriptions')
@@ -69,6 +88,8 @@ export const config = {
     '/projects/:path*',
     '/clients/:path*',
     '/files/:path*',
+    '/login',
+    '/signup',
     '/api/:path*',
   ],
 };
