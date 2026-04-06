@@ -4,11 +4,13 @@ import { stripe, STRIPE_CONFIG } from '@/lib/stripe';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
-// Server-side Supabase client with service role key for webhook operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-init server-side Supabase client (env vars unavailable at build time)
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -95,7 +97,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
   }
 
   // Find user by email via profiles table (efficient single-row lookup)
-  const { data: profile, error: profileError } = await supabaseAdmin
+  const { data: profile, error: profileError } = await getSupabaseAdmin()
     .from('profiles')
     .select('id')
     .eq('email', customerEmail)
@@ -113,7 +115,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
     current_period_end: subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null,
   };
 
-  const { error } = await supabaseAdmin
+  const { error } = await getSupabaseAdmin()
     .from('subscriptions')
     .upsert({
       user_id: profile.id,
@@ -124,7 +126,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  const { error } = await supabaseAdmin
+  const { error } = await getSupabaseAdmin()
     .from('subscriptions')
     .update({
       status: 'canceled',
@@ -138,7 +140,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
   const subscriptionId = invoice.subscription;
   if (subscriptionId && typeof subscriptionId === 'string') {
-    const { error } = await supabaseAdmin
+    const { error } = await getSupabaseAdmin()
       .from('subscriptions')
       .update({ status: 'active' })
       .eq('stripe_subscription_id', subscriptionId);
@@ -150,7 +152,7 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
   const subscriptionId = invoice.subscription;
   if (subscriptionId && typeof subscriptionId === 'string') {
-    const { error } = await supabaseAdmin
+    const { error } = await getSupabaseAdmin()
       .from('subscriptions')
       .update({ status: 'past_due' })
       .eq('stripe_subscription_id', subscriptionId);
