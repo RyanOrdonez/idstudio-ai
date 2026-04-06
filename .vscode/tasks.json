@@ -1,0 +1,64 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Launch App",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/windows/start_app.bat",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            },
+            "problemMatcher": [],
+            "detail": "Start IDStudio.ai development server"
+        },
+        {
+            "label": "Create Desktop Shortcut",
+            "type": "shell",
+            "command": "cscript",
+            "args": ["${workspaceFolder}/scripts/windows/create_desktop_shortcut.vbs"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            },
+            "problemMatcher": [],
+            "detail": "Create desktop shortcut for IDStudio.ai"
+        },
+        {
+            "label": "Install Dependencies",
+            "type": "shell",
+            "command": "npm",
+            "args": ["install"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            },
+            "problemMatcher": ["$tsc"],
+            "detail": "Install npm dependencies"
+        },
+        {
+            "label": "Build for Production",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "build"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            },
+            "problemMatcher": ["$tsc"],
+            "detail": "Build IDStudio.ai for production"
+        }
+    ]
+}

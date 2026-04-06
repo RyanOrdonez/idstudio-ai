@@ -1,0 +1,172 @@
+# IDStudio.Ai - Windsurf Rules & Session Log
+
+## Project Overview
+IDStudio.Ai is a Next.js 14 (App Router) AI-powered platform for interior designers.
+- **Stack**: TypeScript, React, Tailwind CSS, shadcn/ui, Zustand, Framer Motion
+- **Backend**: Supabase (PostgreSQL, Auth, Storage)
+- **AI**: Anthropic Claude API + Google Gemini
+- **Payments**: Stripe subscription management
+- **Toast System**: Sonner (already mounted in root layout)
+- **Product Clipper**: Chrome extension (`idstudio-clipper` repo) + in-app Product Library at `/dashboard/sourcing`
+
+## Code Conventions
+- Use `Anthropic.Tool[]` for tool definitions passed to Claude API (not `as any`)
+- Guard debug `console.log` calls behind `process.env.NODE_ENV === 'development'`
+- Use `toast.error()` from sonner for user-facing error feedback (Toaster is in `app/layout.tsx`)
+- Clean up timers/subscriptions on component unmount via `useRef` + `useEffect` cleanup
+- Avoid double-computation in render functions (cache `.split()` results in a variable)
+- Webhook handlers must let errors propagate (no try/catch swallowing) so Stripe retries on failure
+- Validate all user-supplied redirect URLs against the app's origin before passing to Stripe
+- All interactive elements must have `aria-label`; dropdowns need `aria-expanded`, `aria-haspopup`, `role="listbox"`
+- Category selectors use `role="tablist"` / `role="tab"` / `aria-selected` pattern
+- Chat message containers use `role="log"` with `aria-live="polite"` for screen reader announcements
+- Dashboard activity sorting uses raw ISO dates (`createdAt`), not formatted relative strings
+
+## Session Changes — 2026-04-05 (Claude Code)
+
+### 1. Removed `options-screener/` directory
+- **What**: Deleted entire `options-screener/` folder containing `main.py`, `screener_gui.py`, `test_screener.py`, `requirements.txt`, `run_screener.bat`, `README.md`
+- **Why**: Unrelated Python day-trading/options-contracts code (butterfly put screener) that was accidentally mixed into the interior design project
+- **Files removed**: `options-screener/main.py`, `options-screener/screener_gui.py`, `options-screener/test_screener.py`, `options-screener/requirements.txt`, `options-screener/run_screener.bat`, `options-screener/README.md`
+
+### 2. Guarded debug console.log in chat API route
+- **File**: `app/api/chat/route.ts` (line ~199)
+- **What**: Wrapped `console.log('[AI Tool]...')` in `process.env.NODE_ENV === 'development'` check
+- **Why**: Prevents tool names and inputs from being logged in production server logs
+
+### 3. Replaced `as any` type casts with proper types
+- **File**: `app/api/chat/route.ts`
+  - `TOOL_DEFINITIONS as any` -> `TOOL_DEFINITIONS as Anthropic.Tool[]`
+  - Removed unnecessary `as any` on `completion.content` and `toolResults` in message array construction
+- **File**: `app/api/webhooks/route.ts`
+  - `(subscription as any).current_period_end` -> `subscription.current_period_end` (property exists on Stripe.Subscription)
+  - `(invoice as any).subscription` -> `invoice.subscription` (property exists on Stripe.Invoice)
+- **Why**: Improves type safety, enables IDE autocomplete, and catches type errors at compile time
+
+### 4. Added toast notifications for dashboard fetch errors
+- **File**: `app/dashboard/page.tsx`
+- **What**: Replaced silent `console.error` calls with `toast.error()` from sonner when projects/clients/files fail to load
+- **Why**: Users now see visual feedback when data fails to load instead of seeing empty sections with no explanation
+
+### 5. Optimized MessageBubble split logic
+- **File**: `components/MessageBubble.tsx`
+- **What**: Cached `content.split('\n')` in a `lines` variable instead of calling `.split()` twice per render
+- **Why**: Eliminates redundant string splitting on every render cycle
+
+### 6. Fixed setTimeout memory leak on login page
+- **File**: `app/login/page.tsx`
+- **What**: Stored the redirect `setTimeout` in a `useRef` and added a `useEffect` cleanup to clear it on unmount
+- **Why**: Prevents the redirect from firing after the component unmounts if the user navigates away during the 1.2s delay
+
+### 7. Fixed Stripe webhook handlers swallowing errors
+- **File**: `app/api/webhooks/route.ts`
+- **What**: Removed try/catch blocks from all 5 webhook handler functions (`handleSubscriptionUpdate`, `handleSubscriptionDeleted`, `handlePaymentSucceeded`, `handlePaymentFailed`, `handleTrialWillEnd`). Errors now propagate to the outer handler which returns 500, causing Stripe to retry.
+- **Why**: Previously, handlers caught errors and returned normally, so the route always returned 200 OK to Stripe. This made Stripe think the webhook was processed successfully, and it would never retry. Failed subscription updates, payment status changes, and cancellations were silently lost.
+- **Also**: Guarded webhook console.logs behind `NODE_ENV === 'development'`
+
+### 8. Added redirect URL validation to checkout and billing portal
+- **Files**: `app/api/checkout/route.ts`, `app/api/billing-portal/route.ts`
+- **What**: Added origin validation for `successUrl`, `cancelUrl`, and `returnUrl` parameters. Validates that supplied URLs match the app's own origin (derived from `request.url`), preventing open redirect attacks.
+- **Why**: Without validation, an attacker could craft a checkout request with a phishing domain as the success URL, tricking users into entering credentials on a lookalike site after payment.
+
+### 9. Added credit fetch error handling in AIChatPanel
+- **File**: `components/layout/AIChatPanel.tsx`
+- **What**: Replaced empty `catch {}` block with proper error logging and a `toast.error('Unable to load credit balance')` notification for both fetch failures and non-OK responses.
+- **Why**: Users previously got no feedback when credit status failed to load. They could attempt messages without knowing their balance, leading to confusing "out of credits" errors mid-conversation.
+
+### 10. Optimized dashboard queries and fixed brittle date sorting
+- **File**: `app/dashboard/page.tsx`
+- **What**: Reduced query limits from 10 to 5 per table (only 5 items displayed). Added raw `createdAt` field to activity items and replaced the fragile try/catch sort (which was parsing relative strings like "2 hours ago") with a clean `new Date(b.createdAt).getTime()` comparison.
+- **Why**: Was fetching 30 rows to show 5. The sort was comparing formatted strings ("2 hours ago") as dates, which silently broke — "2 days ago" and "3 hours ago" both resolved to `Date.now()`, making the sort random.
+
+### 11. Added comprehensive accessibility to AI chat panel
+- **File**: `components/layout/AIChatPanel.tsx`
+- **What**:
+  - Added `aria-label="AI Assistant chat panel"` to the `<aside>` landmark
+  - Added `aria-label="Open AI Assistant"` / `"Close AI Assistant"` to toggle buttons
+  - Added `aria-expanded`, `aria-haspopup="listbox"`, `aria-label` to model selector button
+  - Added `role="listbox"` to model dropdown, `role="option"` + `aria-selected` to each option
+  - Added `role="tablist"` to category selector, `role="tab"` + `aria-selected` to each tab
+  - Added `role="log"` + `aria-live="polite"` to message container for live announcements
+  - Added `aria-label="Message to AI assistant"` to textarea, `aria-label="Send message"` to send button
+  - Added keyboard navigation to model dropdown (ArrowUp/Down to cycle, Enter/Space to confirm, Escape to close)
+- **Why**: Screen reader users couldn't navigate the chat panel. No interactive elements had labels, the dropdown had no keyboard support, and new messages weren't announced.
+
+---
+
+## Session Changes — 2026-04-05 (Claude Code, Session 2: Product Clipper)
+
+### 12. Product Clipper — Foundation & Types
+- **New files**: `lib/product-clipper/types.ts`, `lib/product-clipper/categories.ts`, `lib/product-clipper/index.ts`
+- **What**: Created `ClippedProduct`, `ProductImage`, `ProductCollection`, `CollectionProduct`, `ClipProductRequest` interfaces. 18 interior-design-specific product categories with display labels and helper function.
+- **Pattern**: Types are shared between IDStudio.Ai and the Chrome extension (`idstudio-clipper` repo)
+
+### 13. Product Clipper — Database Schema
+- **File**: `supabase/setup.sql` (sections 11-14)
+- **What**: Added 4 new tables: `clipped_products` (main product table with 20 fields), `product_images` (additional images with sort order), `product_collections` (groupings/boards), `collection_products` (junction table with UNIQUE constraint). All have RLS enabled with user-scoped policies. Indexes on (user_id, archived), (user_id, category), and (project_id).
+
+### 14. Product Clipper — CORS Utility
+- **New file**: `lib/cors.ts`
+- **What**: `corsHeaders(response)` adds Access-Control-Allow-* headers, `handleCorsOptions()` returns 204 preflight. Used by all product API routes for Chrome extension cross-origin requests.
+
+### 15. Product Clipper — API Routes
+- **New files**:
+  - `app/api/products/clip/route.ts` — POST to save a clipped product. Downloads product image to Supabase Storage. Rate limited 30/min.
+  - `app/api/products/route.ts` — GET with filtering (category, project, search) and pagination
+  - `app/api/products/[id]/route.ts` — PATCH to update, DELETE to archive or hard-delete
+  - `app/api/products/enrich/route.ts` — POST with URL, extracts product data from JSON-LD / Open Graph / title. Rate limited 10/min.
+  - `app/api/products/collections/route.ts` — GET to list, POST to create collections
+- **All routes**: Bearer token auth, CORS headers, consistent error responses
+
+### 16. Product Clipper — Product Library Page
+- **File**: `app/dashboard/sourcing/page.tsx` (full replacement)
+- **What**: Tabbed layout (Product Library active, Vendors + FF&E coming soon). Full CRUD following the projects/clients page pattern. Features: URL auto-fill via `/api/products/enrich`, category filter, project assignment, product grid with image thumbnails, hover actions (edit/open/archive), search, inline form, confirmation dialogs.
+- **New dependency**: `node-html-parser` for server-side HTML parsing in the enrich route
+
+### 17. Product Clipper — AI Tool Integration
+- **File**: `lib/aiTools.ts` — Added 3 tool definitions (`list_clipped_products`, `clip_product`, `search_products`) and 3 execution cases
+- **File**: `app/api/chat/route.ts` — Added Clipped Product Fields to ENTITY_REFERENCE, updated sourcing system prompt, added tools to general system prompt
+
+### 18. Middleware CSP Update
+- **File**: `middleware.ts` — Added `https:` to `img-src` CSP directive for retailer product images
+
+### 19. Chrome Extension Repo Scaffold
+- **Location**: `GitHub-Repos/idstudio-clipper/` (separate repo)
+- **Framework**: Plasmo (React + TypeScript, Manifest V3)
+- **Structure**: Content script for multi-layer product extraction (JSON-LD → OG → CSS), popup UI with editable form, background service worker for auth, settings page for login
+
+### 20. Build Fixes
+- **File**: `app/dashboard/page.tsx` — Added missing `createdAt` field to demo activity data (caused TS error from earlier session's type change)
+- **File**: `lib/stripe.ts` — Fixed pre-existing Stripe API version mismatch (`2024-06-20` → `2023-10-16` to match installed `stripe` package types)
+- **Result**: Zero TypeScript errors on `tsc --noEmit`
+
+### 21. Database Migration Note
+- The 4 new product clipper tables (sections 11-14 in `supabase/setup.sql`) must be run **separately** in the Supabase SQL Editor — not the entire file, which will fail on duplicate policy names for existing tables.
+- Migration was run successfully on 2026-04-05.
+
+---
+
+## Current Product Clipper Status
+
+### Completed
+- Database schema (4 tables with RLS, indexes)
+- All API routes (clip, list, update/delete, enrich, collections) with CORS
+- Product Library page at `/dashboard/sourcing` with tabbed layout, CRUD, URL auto-fill
+- AI assistant integration (3 tools: list, clip, search products)
+- Chrome extension repo scaffolded with extraction engine, popup, auth, API client
+- TypeScript compiles clean, dependencies installed for both repos
+
+### Needs Testing
+- Product Library page load and CRUD operations
+- URL enrichment on real retailer pages
+- AI chat tools for product management
+- Chrome extension build and load in Chrome
+
+### Future Work
+- Extension auth: bake Supabase URL/key into build config instead of prompting
+- Product detail drawer/modal on card click
+- Collection management UI
+- Drag products onto mood boards
+- Retailer-specific extraction rules
+- Extension icon/branding assets
+- Publish extension to Chrome Web Store

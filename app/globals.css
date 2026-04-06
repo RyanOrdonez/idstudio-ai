@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Satoshi — primary UI font */
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800&display=swap');
+/* Playfair Display — editorial headings */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap');
+
+@layer base {
+  :root {
+    /* Warm neutral palette — no pure white, cream-based */
+    --background: 40 33% 98%;       /* cream-50: #FEFDFB */
+    --foreground: 30 18% 24%;       /* stone-900: #3A352E */
+
+    --card: 38 30% 97%;             /* cream-100: #FBF8F3 */
+    --card-foreground: 30 18% 24%;
+
+    --popover: 38 30% 97%;
+    --popover-foreground: 30 18% 24%;
+
+    --primary: 38 48% 49%;          /* accent: #B58A45 */
+    --primary-foreground: 40 33% 98%;
+
+    --secondary: 35 20% 93%;        /* cream-200: #F5F0E8 */
+    --secondary-foreground: 30 18% 30%;
+
+    --muted: 35 16% 91%;            /* stone-200: #E8E4DD */
+    --muted-foreground: 28 12% 45%; /* stone-600 */
+
+    --accent: 35 20% 93%;
+    --accent-foreground: 30 18% 24%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 40 33% 98%;
+
+    --border: 33 16% 86%;           /* stone-300: #D9D3C9 */
+    --input: 33 16% 86%;
+    --ring: 38 48% 49%;             /* accent gold */
+
+    --radius: 0.75rem;
+
+    /* Sidebar */
+    --sidebar: 30 18% 18%;          /* dark warm */
+    --sidebar-foreground: 35 20% 93%;
+    --sidebar-accent: 38 48% 49%;
+  }
+
+  .dark {
+    --background: 30 14% 10%;
+    --foreground: 35 20% 93%;
+
+    --card: 30 14% 13%;
+    --card-foreground: 35 20% 93%;
+
+    --popover: 30 14% 13%;
+    --popover-foreground: 35 20% 93%;
+
+    --primary: 38 48% 49%;
+    --primary-foreground: 30 14% 10%;
+
+    --secondary: 30 12% 18%;
+    --secondary-foreground: 35 20% 90%;
+
+    --muted: 30 10% 20%;
+    --muted-foreground: 28 10% 60%;
+
+    --accent: 30 12% 18%;
+    --accent-foreground: 35 20% 93%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 35 20% 93%;
+
+    --border: 30 10% 22%;
+    --input: 30 10% 22%;
+    --ring: 38 48% 49%;
+
+    --sidebar: 30 14% 8%;
+    --sidebar-foreground: 35 20% 85%;
+    --sidebar-accent: 38 48% 49%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+  }
+
+  html {
+    max-width: 100vw;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  /* Editorial heading styles */
+  h1, h2, h3 {
+    @apply font-serif tracking-tight;
+  }
+
+  h1 {
+    @apply text-4xl font-semibold leading-tight;
+  }
+
+  h2 {
+    @apply text-2xl font-semibold leading-snug;
+  }
+
+  h3 {
+    @apply text-xl font-medium;
+  }
+
+  /* Body text uses Satoshi */
+  h4, h5, h6, p, span, label, input, textarea, select, button {
+    @apply font-sans;
+  }
+}
+
+/* Utility classes for the design system */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .editorial-shadow {
+    box-shadow: 0 24px 48px -12px rgba(74, 63, 51, 0.15);
+  }
+}
