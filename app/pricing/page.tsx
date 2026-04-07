@@ -1,50 +1,66 @@
 'use client'
 
-import { useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import PricingCards from '@/components/PricingCards'
 
 export default function PricingPage() {
-  const [selectedPlan, setSelectedPlan] = useState<'free' | 'starter' | 'pro'>('starter')
-
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-cream-50">
       <Header />
-      
+
       <main className="py-20">
-        <PricingCards 
-          selectedPlan={selectedPlan}
-          onPlanSelect={setSelectedPlan}
-          showTrialButton={true}
-        />
+        <PricingCards />
 
         {/* FAQ Section */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16">
-          <div className="max-w-3xl mx-auto">
-            <h2 className="text-3xl font-bold text-neutral-900 text-center mb-12">Frequently Asked Questions</h2>
-            <div className="space-y-8">
-              <div>
-                <h3 className="text-lg font-semibold text-neutral-900 mb-2">Is there a free trial?</h3>
-                <p className="text-neutral-600">Yes! All plans come with a 14-day free trial. No credit card required to start.</p>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-neutral-900 mb-2">Can I change plans anytime?</h3>
-                <p className="text-neutral-600">Absolutely. You can upgrade or downgrade your plan at any time. Changes take effect immediately.</p>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-neutral-900 mb-2">What payment methods do you accept?</h3>
-                <p className="text-neutral-600">We accept all major credit cards, PayPal, and bank transfers for Enterprise customers.</p>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-neutral-900 mb-2">Is my data secure?</h3>
-                <p className="text-neutral-600">Yes. We use enterprise-grade security with end-to-end encryption and regular security audits.</p>
-              </div>
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-20">
+          <h2 className="text-2xl sm:text-3xl font-serif font-semibold text-foreground text-center mb-10">
+            Frequently Asked Questions
+          </h2>
+          <div className="space-y-7">
+            <div>
+              <h3 className="text-base font-semibold text-foreground mb-1.5">
+                Is there a free trial?
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Yes — every new signup gets a 14-day trial of the full Professional
+                experience automatically, no credit card required. When it ends,
+                pick a plan that fits.
+              </p>
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-foreground mb-1.5">
+                Can I change plans anytime?
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Absolutely. Upgrade, downgrade, or cancel from the settings page or
+                Stripe billing portal. Changes take effect immediately and we prorate
+                the difference.
+              </p>
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-foreground mb-1.5">
+                What payment methods do you accept?
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                All major credit and debit cards via Stripe. Your payment details are
+                never stored on our servers.
+              </p>
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-foreground mb-1.5">
+                Is my data secure?
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Yes. All data is stored in Supabase with row-level security, every
+                request is encrypted in transit, and you own your data — export or
+                delete at any time.
+              </p>
             </div>
           </div>
         </div>
       </main>
-      
+
       <Footer />
     </div>
   )

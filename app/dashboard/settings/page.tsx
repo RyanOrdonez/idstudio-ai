@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { useSubscription } from '@/hooks/useSubscription'
+import { useCredits } from '@/hooks/useCredits'
 import { supabase } from '@/lib/supabaseClient'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -9,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
+import PricingCards from '@/components/PricingCards'
 import {
   User,
   Shield,
@@ -19,15 +21,50 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Sparkles,
+  ExternalLink,
 } from 'lucide-react'
 
 type SettingsTab = 'profile' | 'account' | 'notifications' | 'billing'
 
+const PLAN_LABELS: Record<string, string> = {
+  free: 'Free',
+  starter: 'Starter',
+  pro: 'Professional',
+  studio: 'Studio',
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  active: 'Active',
+  trialing: 'Trialing',
+  past_due: 'Past due',
+  canceled: 'Canceled',
+}
+
+const STATUS_VARIANT: Record<string, 'success' | 'warm' | 'destructive' | 'secondary'> = {
+  active: 'success',
+  trialing: 'warm',
+  past_due: 'destructive',
+  canceled: 'secondary',
+}
+
+function daysUntil(isoDate: string | null | undefined): number | null {
+  if (!isoDate) return null
+  const target = new Date(isoDate).getTime()
+  const now = Date.now()
+  if (Number.isNaN(target)) return null
+  const diffMs = target - now
+  if (diffMs <= 0) return 0
+  return Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+}
+
 export default function DashboardSettings() {
   const { user, signOut } = useAuth()
+  const { subscription, isLoading: isSubLoading } = useSubscription()
+  const { creditStatus, isLoading: isCreditsLoading } = useCredits()
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
   const [isLoading, setIsLoading] = useState(false)
+  const [isBillingPortalLoading, setIsBillingPortalLoading] = useState(false)
+  const [billingError, setBillingError] = useState<string | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [formData, setFormData] = useState({
     firstName: '',
@@ -37,6 +74,29 @@ export default function DashboardSettings() {
     company: '',
     bio: '',
   })
+
+  const handleManageBilling = async () => {
+    setBillingError(null)
+    setIsBillingPortalLoading(true)
+    try {
+      const res = await fetch('/api/billing-portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          returnUrl: `${window.location.origin}/dashboard/settings`,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        throw new Error(data.error || `Failed to open billing portal (${res.status})`)
+      }
+      window.location.href = data.url
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to open billing portal'
+      setBillingError(msg)
+      setIsBillingPortalLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (user) {
@@ -82,27 +142,6 @@ export default function DashboardSettings() {
     { id: 'account', label: 'Account', icon: Shield },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'billing', label: 'Billing', icon: CreditCard },
-  ]
-
-  const pricingTiers = [
-    {
-      name: 'Solo',
-      price: 49,
-      features: ['Up to 10 active projects', 'AI Assistant', 'Client Management', '5 GB Storage', 'Email Support'],
-      popular: false,
-    },
-    {
-      name: 'Studio',
-      price: 149,
-      features: ['Unlimited projects', 'Advanced AI Features', 'Document Generation', '50 GB Storage', 'Priority Support', 'Client Portal'],
-      popular: true,
-    },
-    {
-      name: 'Agency',
-      price: 299,
-      features: ['Everything in Studio', 'Team Collaboration', '200 GB Storage', 'Custom Branding', 'API Access', 'Dedicated Account Manager'],
-      popular: false,
-    },
   ]
 
   return (
@@ -306,51 +345,110 @@ export default function DashboardSettings() {
             {/* Billing */}
             {activeTab === 'billing' && (
               <div className="space-y-6">
+                {/* Current plan header */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Current Plan</CardTitle>
-                    <CardDescription>You&apos;re currently on the Free plan</CardDescription>
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                      <div>
+                        <CardTitle>Current Plan</CardTitle>
+                        <CardDescription className="mt-1">
+                          {isSubLoading
+                            ? 'Loading subscription details…'
+                            : subscription
+                              ? `You're on the ${PLAN_LABELS[subscription.plan_type] ?? subscription.plan_type} plan.`
+                              : 'No active subscription.'}
+                        </CardDescription>
+                      </div>
+                      {!isSubLoading && subscription && (
+                        <Badge
+                          variant={STATUS_VARIANT[subscription.status] ?? 'secondary'}
+                          className="text-xs"
+                        >
+                          {STATUS_LABELS[subscription.status] ?? subscription.status}
+                        </Badge>
+                      )}
+                    </div>
                   </CardHeader>
+                  <CardContent className="space-y-5">
+                    {/* Trial countdown */}
+                    {subscription?.status === 'trialing' &&
+                      (() => {
+                        const trialEnd =
+                          subscription.trial_end ?? subscription.current_period_end
+                        const days = daysUntil(trialEnd)
+                        if (days === null) return null
+                        return (
+                          <div className="rounded-lg border border-warm-200 bg-warm-50 px-4 py-3 text-sm text-warm-900">
+                            {days === 0
+                              ? 'Your trial ends today. Upgrade below to keep access.'
+                              : `Your trial ends in ${days} day${days === 1 ? '' : 's'}. Upgrade below to keep access after that.`}
+                          </div>
+                        )
+                      })()}
+
+                    {/* Credit usage strip */}
+                    {!isCreditsLoading && creditStatus && (
+                      <div>
+                        <div className="flex items-center justify-between text-sm mb-2">
+                          <span className="text-muted-foreground">AI credits this week</span>
+                          <span className="font-medium text-foreground">
+                            {creditStatus.unlimited
+                              ? 'Unlimited'
+                              : `${creditStatus.creditsUsed} / ${creditStatus.weeklyLimit}`}
+                          </span>
+                        </div>
+                        {!creditStatus.unlimited && (
+                          <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+                            <div
+                              className="h-full bg-warm-600 transition-all duration-300"
+                              style={{
+                                width: `${Math.min(
+                                  100,
+                                  (creditStatus.creditsUsed /
+                                    Math.max(creditStatus.weeklyLimit, 1)) *
+                                    100
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Manage Billing button — only when there's a Stripe customer on file */}
+                    {subscription?.stripe_customer_id && (
+                      <div className="pt-2 flex items-center gap-3 flex-wrap">
+                        <Button
+                          variant="outline"
+                          onClick={handleManageBilling}
+                          disabled={isBillingPortalLoading}
+                          className="gap-2"
+                        >
+                          {isBillingPortalLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <ExternalLink className="h-4 w-4" />
+                          )}
+                          Manage billing
+                        </Button>
+                        <span className="text-xs text-muted-foreground">
+                          Update payment method, download invoices, or cancel.
+                        </span>
+                      </div>
+                    )}
+
+                    {billingError && (
+                      <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+                        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                        {billingError}
+                      </div>
+                    )}
+                  </CardContent>
                 </Card>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {pricingTiers.map((tier) => (
-                    <Card
-                      key={tier.name}
-                      className={`relative ${tier.popular ? 'border-primary shadow-soft-md' : ''}`}
-                    >
-                      {tier.popular && (
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                          <Badge className="gap-1">
-                            <Sparkles className="h-3 w-3" /> Most Popular
-                          </Badge>
-                        </div>
-                      )}
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-lg">{tier.name}</CardTitle>
-                        <p className="text-2xl font-bold text-foreground">
-                          ${tier.price}
-                          <span className="text-sm font-normal text-muted-foreground">/mo</span>
-                        </p>
-                      </CardHeader>
-                      <CardContent>
-                        <ul className="space-y-2 text-sm text-muted-foreground mb-5">
-                          {tier.features.map((f) => (
-                            <li key={f} className="flex items-center gap-2">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
-                              {f}
-                            </li>
-                          ))}
-                        </ul>
-                        <Button
-                          className="w-full"
-                          variant={tier.popular ? 'default' : 'outline'}
-                        >
-                          Upgrade to {tier.name}
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
+                {/* Upgrade / switch cards */}
+                <div className="pt-4">
+                  <PricingCards />
                 </div>
               </div>
             )}

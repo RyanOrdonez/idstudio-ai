@@ -56,8 +56,14 @@ Last updated: 2026-04-07
 - ✅ Per-message usage logging in `ai_messages` (analytics only — not full conversation history)
 
 **Stripe**
-- ✅ Stripe client (`lib/stripe.ts`) with STARTER, PRO, FREE plan config
-- ✅ `/api/checkout` (with 14-day trial), `/api/billing-portal`, `/api/webhooks`, `/api/subscription/auto-trial`
+- ✅ Stripe client (`lib/stripe.ts`) with FREE / Starter ($29/mo) / Pro ($79/mo) plan config, test mode
+- ✅ `/api/checkout` — supports trial-to-paid conversion, paid-plan switches (cancels old sub), same-plan no-op
+- ✅ `/api/webhooks` — maps Stripe price_id → plan_type, stale-ID guard on delete events, syncs trial_end + cancel_at_period_end
+- ✅ `/api/billing-portal` — opens Stripe billing portal for customers with active subscription
+- ✅ `/api/subscription/auto-trial` — creates 14-day trial on first dashboard visit
+- ✅ `/pricing` page with working "Upgrade to Starter/Pro" buttons → Stripe Checkout → back to `/checkout-success`
+- ✅ `/checkout-success` and `/checkout-cancel` landing pages with webhook-race polling mitigation
+- ✅ Dashboard settings billing tab — shows current plan, trial countdown, credit usage bar, Manage Billing button, upgrade/switch CTAs
 
 **Code quality**
 - ✅ No `as any` casts in active code (4 `: any` annotations remain in places where types genuinely can't be narrowed — acceptable)
@@ -69,7 +75,6 @@ Last updated: 2026-04-07
 - 🔴 **`/dashboard/mood-boards`** — 38-line "Coming Soon" stub
 - 🔴 **`/dashboard/financials`** — 38-line "Coming Soon" stub
 - 🔴 **`/dashboard/analytics`** — 38-line "Coming Soon" stub
-- 🔴 **Pricing tier upgrade flow** — `/pricing` page exists (36 KB bundle) but no working "Upgrade" buttons → Stripe Checkout flow has not been wired up. Trial subscriptions auto-create but users can't pay to upgrade.
 - 🔴 **`app/contact/page.tsx`** — submit handler is `// TODO: Wire up to Resend or backend endpoint` then `alert(...)`. Resend package is installed (`resend@3.2.0`) but never imported.
 - 🔴 **Chat memory / chat history panel** — chat messages are NOT persisted across sessions. `ai_messages` table only stores token-usage analytics (model, category, credits_cost, tokens) — not actual message content.
 - 🔴 **`GOOGLE_AI_API_KEY`** missing from `.env.local` (added to Vercel) — image gen probably broken locally
@@ -88,14 +93,14 @@ Last updated: 2026-04-07
 
 The numbered list below is the **strict order** to work in. Top = next task. Each task is small enough to ship a focused commit.
 
-### 1. Wire up Stripe upgrade flow ⭐ CRITICAL
-Without this, no user can pay. Trial expires in 14 days and they have nowhere to go.
-- Verify `/api/checkout/route.ts` works end-to-end with real price IDs
-- Build the actual "Upgrade" buttons on `/pricing` (4 tiers: Free, Starter $49, Pro $149, Studio $299) → POST to `/api/checkout` → redirect to Stripe Checkout
-- Handle success/cancel return URLs
-- Confirm `/api/webhooks` updates `subscriptions` table on `customer.subscription.created/updated/deleted`
-- Add a "Manage Billing" button in `/dashboard/settings` → calls `/api/billing-portal`
-- Display current plan + credit usage in settings or sidebar
+### 1. ~~Wire up Stripe upgrade flow~~ ✅ DONE (2026-04-07)
+Shipped in commit TBD. Working Stripe upgrade flow for Free / Starter ($29/mo) / Pro ($79/mo). Studio tier deferred due to naming conflict with product name "IDStudio" — a third paid tier will come back later under a different name. Delivered:
+- Fixed `/api/checkout`: same-plan no-op, cancels old Stripe sub on paid-plan switches, no second trial on upgrade, defaults success/cancel URLs
+- Fixed `/api/webhooks`: maps Stripe price_id → plan_type, syncs trial_end and cancel_at_period_end, stale-ID guard on delete events
+- Shared `lib/checkout.ts` client helper used by both pricing page and settings
+- Rewrote `components/PricingCards.tsx` with warm-neutral design, 4-state button logic (start/upgrade/switch/current), Framer Motion stagger
+- New `/checkout-success` and `/checkout-cancel` landing pages with polling for webhook race mitigation
+- Rewrote billing tab in `/dashboard/settings` with real subscription state, trial countdown, credit usage bar, Manage Billing button
 
 ### 2. Replace `/dashboard/financials` placeholder with v1 invoicing
 Per PRODUCT-PLAN MODULE 9C ("General Financial Tools"), the minimum viable financials feature is invoicing — not the full budget tool. Build that first.

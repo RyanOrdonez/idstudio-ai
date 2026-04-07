@@ -34,66 +34,86 @@ export const STRIPE_CONFIG = {
   TRIAL_PERIOD_DAYS: 14,
 };
 
+// Single source of truth for plan metadata shown in the UI.
+// Prices here MUST match the amounts configured in the Stripe Dashboard
+// for STRIPE_STARTER_PLAN_PRICE_ID and STRIPE_PRO_PLAN_PRICE_ID.
+// If you change prices in Stripe, update these values to match.
 export const PRICING_PLANS = {
   free: {
     name: 'Free',
+    tagline: 'Explore IDStudio at your own pace',
     price: 0,
     priceId: null,
     features: [
-      'Up to 3 projects',
-      'Basic AI Assistant',
-      'Community Support',
-      '1GB File Storage'
+      '7 AI credits per week',
+      '1 active project',
+      'Basic mood boards',
+      '1 GB file storage',
+      'Community support',
     ],
     limits: {
-      projects: 3,
+      projects: 1,
       files: 10,
       conversations: 3,
-      messages: 50
-    }
+      messages: 50,
+    },
   },
   starter: {
     name: 'Starter',
+    tagline: 'For solo designers getting started',
     price: 29,
     get priceId() {
       return process.env.STRIPE_STARTER_PLAN_PRICE_ID!;
     },
     features: [
-      'Up to 10 active projects',
-      'AI Assistant & Mood Boards',
-      'Client Management',
-      '5GB File Storage',
-      'Email Support'
+      '50 AI credits per week',
+      '10 active projects',
+      'Mood boards & document generation',
+      '5 GB file storage',
+      'Email support',
     ],
     limits: {
       projects: 10,
       files: 100,
       conversations: 20,
-      messages: 1000
-    }
+      messages: 1000,
+    },
   },
   pro: {
     name: 'Professional',
+    tagline: 'For established solo designers',
     price: 79,
     get priceId() {
       return process.env.STRIPE_PRO_PLAN_PRICE_ID!;
     },
     popular: true,
     features: [
+      '200 AI credits per week',
       'Unlimited projects',
-      'Advanced AI Features',
-      'Document Generation',
-      '50GB File Storage',
-      'Priority Support'
+      'All AI features & document generation',
+      '50 GB file storage',
+      'Priority support',
     ],
     limits: {
       projects: -1, // unlimited
       files: -1,
       conversations: -1,
-      messages: -1
-    }
-  }
+      messages: -1,
+    },
+  },
 };
+
+/**
+ * Maps a Stripe price ID back to our internal plan_type identifier.
+ * Returns null for unknown price IDs (e.g. legacy or test prices we don't recognize).
+ * Used by the webhook handler to keep the database plan_type column in sync
+ * when subscriptions are created or updated.
+ */
+export function priceIdToPlanType(priceId: string): 'starter' | 'pro' | null {
+  if (priceId === STRIPE_CONFIG.STARTER_PLAN_PRICE_ID) return 'starter';
+  if (priceId === STRIPE_CONFIG.PRO_PLAN_PRICE_ID) return 'pro';
+  return null;
+}
 
 export const getStripeCustomerByEmail = async (email: string) => {
   const customers = await stripe.customers.list({
@@ -115,13 +135,18 @@ export const createCheckoutSession = async ({
   priceId,
   successUrl,
   cancelUrl,
-  trialPeriodDays = STRIPE_CONFIG.TRIAL_PERIOD_DAYS,
+  trialPeriodDays,
 }: {
   customerId: string;
   priceId: string;
   successUrl: string;
   cancelUrl: string;
-  trialPeriodDays?: number;
+  /**
+   * Trial period in days. Pass `null` or omit for no trial (the default).
+   * The upgrade flow never offers a trial because auto-trial already ran on signup.
+   * Pass an explicit positive number only if starting a brand-new trial.
+   */
+  trialPeriodDays?: number | null;
 }) => {
   return await stripe.checkout.sessions.create({
     customer: customerId,
@@ -133,9 +158,10 @@ export const createCheckoutSession = async ({
       },
     ],
     mode: 'subscription',
-    subscription_data: {
-      trial_period_days: trialPeriodDays,
-    },
+    subscription_data:
+      trialPeriodDays && trialPeriodDays > 0
+        ? { trial_period_days: trialPeriodDays }
+        : undefined,
     success_url: successUrl,
     cancel_url: cancelUrl,
     allow_promotion_codes: true,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import { stripe, STRIPE_CONFIG } from '@/lib/stripe';
+import { stripe, STRIPE_CONFIG, priceIdToPlanType } from '@/lib/stripe';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
@@ -107,32 +107,71 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
     throw new Error(`User not found for email: ${customerEmail}`);
   }
 
-  // Update subscription in database
-  const subscriptionData = {
+  // Derive plan_type from the subscription's first price item so the DB
+  // column stays in sync with the plan the user actually paid for.
+  const priceId = subscription.items.data[0]?.price?.id;
+  const planType = priceId ? priceIdToPlanType(priceId) : null;
+  if (!priceId) {
+    console.warn(`Subscription ${subscription.id} has no price item`);
+  } else if (!planType) {
+    // Unknown price ID — log but do NOT overwrite plan_type with a default.
+    // Keep other fields in sync, leave plan_type alone.
+    console.warn(`Unknown priceId ${priceId} on subscription ${subscription.id}`);
+  }
+
+  const updateData: Record<string, unknown> = {
     stripe_customer_id: subscription.customer as string,
     stripe_subscription_id: subscription.id,
     status: subscription.status as string,
-    current_period_end: subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null,
+    current_period_end: subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000).toISOString()
+      : null,
+    trial_end: subscription.trial_end
+      ? new Date(subscription.trial_end * 1000).toISOString()
+      : null,
+    cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+    updated_at: new Date().toISOString(),
   };
+  if (planType) updateData.plan_type = planType;
 
   const { error } = await getSupabaseAdmin()
     .from('subscriptions')
-    .upsert({
-      user_id: profile.id,
-      ...subscriptionData,
-    });
+    .upsert({ user_id: profile.id, ...updateData }, { onConflict: 'user_id' });
 
   if (error) throw error;
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
+  // Stale-ID guard: only mark canceled when the deleted subscription is the
+  // one currently tracked on the user's row. When we upgrade between paid
+  // plans we cancel the old Stripe sub before creating the new one; the
+  // old sub's delete webhook arrives *after* the new sub's created webhook,
+  // so without this guard the row would be re-overwritten to status=canceled
+  // and flash the wrong state in the UI.
+  const { data: row } = await getSupabaseAdmin()
+    .from('subscriptions')
+    .select('id, stripe_subscription_id')
+    .eq('stripe_subscription_id', subscription.id)
+    .maybeSingle();
+
+  if (!row) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        `Ignoring delete for stale subscription ${subscription.id} (not the current one on any row)`
+      );
+    }
+    return;
+  }
+
+  // status='canceled' is enough — the UI uses current_period_end to show
+  // when access ends. (The legacy canceled_at column doesn't exist in setup.sql.)
   const { error } = await getSupabaseAdmin()
     .from('subscriptions')
     .update({
       status: 'canceled',
-      canceled_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     })
-    .eq('stripe_subscription_id', subscription.id);
+    .eq('id', row.id);
 
   if (error) throw error;
 }
