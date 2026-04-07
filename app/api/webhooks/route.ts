@@ -66,6 +66,16 @@ export async function POST(request: NextRequest) {
         await handleTrialWillEnd(event.data.object as Stripe.Subscription);
         break;
 
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        // Only handle one-time invoice payments here.
+        // Subscription checkouts are already handled by customer.subscription.created.
+        if (session.mode === 'payment') {
+          await handleInvoicePaymentCompleted(session);
+        }
+        break;
+      }
+
       default:
         if (process.env.NODE_ENV === 'development') {
           console.log(`Unhandled event type: ${event.type}`);
@@ -205,5 +215,91 @@ async function handleTrialWillEnd(subscription: Stripe.Subscription) {
   // Requires email service integration (e.g., Resend, SendGrid)
   if (process.env.NODE_ENV === 'development') {
     console.log('Trial will end for subscription:', subscription.id);
+  }
+}
+
+async function handleInvoicePaymentCompleted(session: Stripe.Checkout.Session) {
+  const invoiceId = session.metadata?.invoice_id;
+  if (!invoiceId) {
+    console.warn(
+      `checkout.session.completed mode=payment with no invoice_id metadata; ignoring ${session.id}`
+    );
+    return;
+  }
+
+  if (session.payment_status !== 'paid') {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        `Session ${session.id} payment_status=${session.payment_status}; skipping`
+      );
+    }
+    return;
+  }
+
+  const admin = getSupabaseAdmin();
+
+  // Look up the invoice
+  const { data: invoice, error: lookupErr } = await admin
+    .from('invoices')
+    .select('id, user_id, total, status')
+    .eq('id', invoiceId)
+    .maybeSingle();
+
+  if (lookupErr) {
+    console.error(`Invoice lookup failed for ${invoiceId}:`, lookupErr);
+    throw lookupErr;
+  }
+  if (!invoice) {
+    console.warn(`Invoice ${invoiceId} not found for session ${session.id}`);
+    return;
+  }
+
+  // Idempotency guard: if already paid, this is a webhook retry — no-op
+  if (invoice.status === 'paid') {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        `Invoice ${invoiceId} already paid; ignoring duplicate webhook ${session.id}`
+      );
+    }
+    return;
+  }
+
+  const amount = session.amount_total
+    ? session.amount_total / 100
+    : Number(invoice.total);
+  const paymentIntentId =
+    typeof session.payment_intent === 'string'
+      ? session.payment_intent
+      : (session.payment_intent?.id ?? null);
+
+  // Insert the payment row
+  const { error: payErr } = await admin.from('payments').insert({
+    invoice_id: invoice.id,
+    user_id: invoice.user_id,
+    amount,
+    method: 'stripe',
+    stripe_payment_intent_id: paymentIntentId,
+    paid_at: new Date().toISOString(),
+    notes: 'Stripe Checkout payment',
+  });
+  if (payErr) {
+    console.error('Failed to insert payment row:', payErr);
+    throw payErr;
+  }
+
+  // Flip the invoice status to paid
+  const { error: updErr } = await admin
+    .from('invoices')
+    .update({
+      status: 'paid',
+      paid_at: new Date().toISOString(),
+      stripe_payment_intent_id: paymentIntentId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', invoice.id);
+
+  if (updErr) {
+    console.error('Failed to update invoice status:', updErr);
+    throw updErr;
   }
 }

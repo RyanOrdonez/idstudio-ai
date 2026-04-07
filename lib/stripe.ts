@@ -174,3 +174,67 @@ export const createBillingPortalSession = async (customerId: string, returnUrl: 
     return_url: returnUrl,
   });
 };
+
+/**
+ * Create a one-time payment Checkout Session for an invoice.
+ * Used by /api/invoices/[id]/payment-link.
+ *
+ * The session expires after Stripe's default ~24h window. We always create
+ * a fresh session when the user clicks "Get payment link", so stale links
+ * aren't a concern in practice — the invoice's stored session_id is replaced
+ * each time.
+ *
+ * Uses a single aggregated line item ("Invoice {number}") rather than multiple
+ * stripe line items so the customer-facing receipt is clean. The detailed
+ * breakdown lives on the PDF.
+ */
+export const createOneTimeCheckoutSession = async ({
+  customerId,
+  invoiceId,
+  amount,
+  currency = 'usd',
+  invoiceNumber,
+  description,
+  successUrl,
+  cancelUrl,
+}: {
+  customerId: string
+  invoiceId: string
+  amount: number // dollars (we convert to cents below)
+  currency?: string
+  invoiceNumber: string
+  description?: string
+  successUrl: string
+  cancelUrl: string
+}) => {
+  return await stripe.checkout.sessions.create({
+    mode: 'payment',
+    customer: customerId,
+    payment_method_types: ['card'],
+    line_items: [
+      {
+        price_data: {
+          currency,
+          product_data: {
+            name: `Invoice ${invoiceNumber}`,
+            description: description || undefined,
+          },
+          unit_amount: Math.round(amount * 100),
+        },
+        quantity: 1,
+      },
+    ],
+    metadata: {
+      invoice_id: invoiceId,
+      invoice_number: invoiceNumber,
+    },
+    payment_intent_data: {
+      metadata: {
+        invoice_id: invoiceId,
+        invoice_number: invoiceNumber,
+      },
+    },
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+  });
+};

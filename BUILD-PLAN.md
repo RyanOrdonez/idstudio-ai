@@ -58,12 +58,22 @@ Last updated: 2026-04-07
 **Stripe**
 - ✅ Stripe client (`lib/stripe.ts`) with FREE / Starter ($29/mo) / Pro ($79/mo) plan config, test mode
 - ✅ `/api/checkout` — supports trial-to-paid conversion, paid-plan switches (cancels old sub), same-plan no-op
-- ✅ `/api/webhooks` — maps Stripe price_id → plan_type, stale-ID guard on delete events, syncs trial_end + cancel_at_period_end
+- ✅ `/api/webhooks` — maps Stripe price_id → plan_type, stale-ID guard on delete events, syncs trial_end + cancel_at_period_end, handles `checkout.session.completed` for one-time invoice payments
 - ✅ `/api/billing-portal` — opens Stripe billing portal for customers with active subscription
 - ✅ `/api/subscription/auto-trial` — creates 14-day trial on first dashboard visit
 - ✅ `/pricing` page with working "Upgrade to Starter/Pro" buttons → Stripe Checkout → back to `/checkout-success`
 - ✅ `/checkout-success` and `/checkout-cancel` landing pages with webhook-race polling mitigation
 - ✅ Dashboard settings billing tab — shows current plan, trial countdown, credit usage bar, Manage Billing button, upgrade/switch CTAs
+- ✅ One-time payment links per invoice (`createOneTimeCheckoutSession`) with `/invoice-paid` and `/invoice-canceled` public landing pages
+
+**Invoicing (v1)**
+- ✅ Schema: `invoices`, `invoice_line_items`, `payments` tables with RLS, YYYY-MM-NNNN per-user numbering
+- ✅ `lib/invoices.ts` data layer with CRUD + totals + status transitions
+- ✅ `/dashboard/financials` — list with search, status filter, empty state, row actions
+- ✅ `/dashboard/financials/new` — create invoice form with line items, live totals, client/project dropdowns, tax rate
+- ✅ `/dashboard/financials/[id]` — detail view + inline edit + Mark sent / Mark paid / Download PDF / Get payment link / Delete actions, payment history
+- ✅ Branded PDF export via `@react-pdf/renderer` at `/api/invoices/[id]/pdf`
+- ✅ Stripe one-time payment link at `/api/invoices/[id]/payment-link` with automatic webhook-driven status update on payment
 
 **Code quality**
 - ✅ No `as any` casts in active code (4 `: any` annotations remain in places where types genuinely can't be narrowed — acceptable)
@@ -73,7 +83,6 @@ Last updated: 2026-04-07
 ### Known broken / placeholder
 
 - 🔴 **`/dashboard/mood-boards`** — 38-line "Coming Soon" stub
-- 🔴 **`/dashboard/financials`** — 38-line "Coming Soon" stub
 - 🔴 **`/dashboard/analytics`** — 38-line "Coming Soon" stub
 - 🔴 **`app/contact/page.tsx`** — submit handler is `// TODO: Wire up to Resend or backend endpoint` then `alert(...)`. Resend package is installed (`resend@3.2.0`) but never imported.
 - 🔴 **Chat memory / chat history panel** — chat messages are NOT persisted across sessions. `ai_messages` table only stores token-usage analytics (model, category, credits_cost, tokens) — not actual message content.
@@ -102,13 +111,24 @@ Shipped in commit TBD. Working Stripe upgrade flow for Free / Starter ($29/mo) /
 - New `/checkout-success` and `/checkout-cancel` landing pages with polling for webhook race mitigation
 - Rewrote billing tab in `/dashboard/settings` with real subscription state, trial countdown, credit usage bar, Manage Billing button
 
-### 2. Replace `/dashboard/financials` placeholder with v1 invoicing
-Per PRODUCT-PLAN MODULE 9C ("General Financial Tools"), the minimum viable financials feature is invoicing — not the full budget tool. Build that first.
-- Schema: `invoices`, `invoice_line_items`, `payments` tables with RLS
-- UI: list invoices, create invoice (link to project + client), edit, mark sent/paid
-- PDF export of branded invoices (use react-pdf or similar)
-- Stripe payment link per invoice (one-click client payment)
-- Defer expense tracking, business budget tool, and project budget tool to a later iteration
+### 2. ~~Replace `/dashboard/financials` placeholder with v1 invoicing~~ ✅ DONE (2026-04-07)
+Shipped end-to-end invoicing: list, create, edit, delete, mark sent/paid, PDF export, and Stripe one-time payment links. Per BUILD-PLAN scope, expense tracking / budget tools / business financials remain deferred. Delivered:
+- **Schema** (Sections 15/16/17 in `supabase/setup.sql`): `invoices`, `invoice_line_items`, `payments` with RLS + indexes. **Ryan must run the new SQL block in Supabase SQL Editor** before the feature can be used — see note in STRIPE-SETUP.md or run `supabase/setup.sql` idempotently.
+- `lib/invoices.ts` (new): full data layer — `listInvoices`, `getInvoice`, `createInvoice`, `updateInvoice`, `deleteInvoice`, `markInvoiceSent`, `markInvoicePaid`, `generateInvoiceNumber` (YYYY-MM-NNNN format), `computeInvoiceTotals` (pure), `getDisplayStatus` (overdue derivation), `listPaymentsForInvoice`.
+- `lib/stripe.ts`: added `createOneTimeCheckoutSession` helper using `mode: 'payment'` with invoice metadata for webhook correlation.
+- `app/api/webhooks/route.ts`: extended with `checkout.session.completed` handler (guarded to `session.mode === 'payment'`) that inserts a payments row and flips the invoice to paid — with idempotency guard for Stripe retries.
+- `app/api/invoices/[id]/pdf/route.tsx`: renders a branded PDF via `@react-pdf/renderer` (Node runtime, Helvetica, warm-neutral color tokens). Supports `?download=1` for attachment vs inline.
+- `app/api/invoices/[id]/payment-link/route.ts`: creates a fresh Stripe Checkout one-time session per click. Resolves Stripe customer from the linked client's email (with helpful error messages if missing). Rate-limited to 10/min.
+- `components/invoices/InvoicePDF.tsx` (new): @react-pdf/renderer component with letter-size layout, bill-to block, line items table, totals block, notes/terms, footer.
+- `components/invoices/InvoiceStatusBadge.tsx` (new): status-to-shadcn-Badge-variant mapping with built-in overdue derivation.
+- `components/invoices/InvoiceLineItemRow.tsx` (new): controlled-input line item editor with live amount.
+- `components/invoices/InvoiceForm.tsx` (new): shared create + edit form. Live totals via `useMemo`. Client/project dropdowns filtered by selection. Validation for empty items, negatives, bad dates, bad tax rates. Inline errors.
+- `app/dashboard/financials/page.tsx` (rewrite): list view with search (invoice # + client name), status filter, empty state, row actions (view, download PDF, get payment link, delete).
+- `app/dashboard/financials/new/page.tsx` (new): dedicated create route hosting the InvoiceForm.
+- `app/dashboard/financials/[id]/page.tsx` (new): detail view + inline edit (full form swap) + actions (Mark sent, Mark paid dialog, Download PDF, Get payment link with inline success card, Delete). Payment history section.
+- `app/invoice-paid/page.tsx` (new): public branded "Payment received" landing after Stripe success.
+- `app/invoice-canceled/page.tsx` (new): public "Payment canceled" landing.
+- `@react-pdf/renderer@4.4.0` added as a dependency.
 
 ### 3. Replace `/dashboard/mood-boards` placeholder with drag-and-drop builder
 Per PRODUCT-PLAN MODULE 5. Highest emotional value for designers — they judge the platform by this.

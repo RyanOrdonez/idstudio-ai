@@ -366,3 +366,116 @@ ALTER TABLE collection_products ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can CRUD own collection products" ON collection_products
   FOR ALL USING (auth.uid() = user_id);
+
+
+-- ============================================
+-- 15. INVOICING — Invoices
+-- ============================================
+CREATE TABLE IF NOT EXISTS invoices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+  project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
+
+  invoice_number TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'canceled')),
+
+  issue_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  due_date DATE,
+
+  subtotal NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  tax_rate NUMERIC(6, 4) NOT NULL DEFAULT 0,   -- 0.0825 = 8.25%
+  tax_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  total NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'usd',
+
+  notes TEXT,
+  terms TEXT,
+
+  -- Stripe fields (populated when a payment link is generated / paid)
+  stripe_customer_id TEXT,
+  stripe_checkout_session_id TEXT,
+  stripe_payment_intent_id TEXT,
+
+  -- Audit timestamps (status column is source of truth)
+  sent_at TIMESTAMPTZ,
+  paid_at TIMESTAMPTZ,
+  canceled_at TIMESTAMPTZ,
+
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  -- Each user has their own invoice number namespace
+  CONSTRAINT invoices_user_number_unique UNIQUE (user_id, invoice_number)
+);
+
+ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can CRUD own invoices" ON invoices
+  FOR ALL USING (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_invoices_user_created
+  ON invoices(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_invoices_user_status
+  ON invoices(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_invoices_client
+  ON invoices(client_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_project
+  ON invoices(project_id);
+
+
+-- ============================================
+-- 16. INVOICING — Line Items
+-- ============================================
+CREATE TABLE IF NOT EXISTS invoice_line_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+
+  description TEXT NOT NULL,
+  quantity NUMERIC(10, 2) NOT NULL DEFAULT 1,
+  unit_price NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  amount NUMERIC(12, 2) NOT NULL DEFAULT 0,   -- application sets to qty * unit_price
+
+  position INTEGER NOT NULL DEFAULT 0,         -- for future drag-reorder
+
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE invoice_line_items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can CRUD own invoice line items" ON invoice_line_items
+  FOR ALL USING (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_invoice_line_items_invoice
+  ON invoice_line_items(invoice_id, position);
+
+
+-- ============================================
+-- 17. INVOICING — Payments
+-- ============================================
+CREATE TABLE IF NOT EXISTS payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+
+  amount NUMERIC(12, 2) NOT NULL,
+  method TEXT NOT NULL CHECK (method IN ('stripe', 'manual', 'other')),
+
+  stripe_payment_intent_id TEXT,
+  paid_at TIMESTAMPTZ NOT NULL,
+  notes TEXT,
+
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can CRUD own payments" ON payments
+  FOR ALL USING (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_payments_invoice
+  ON payments(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_payments_user_created
+  ON payments(user_id, created_at DESC);
