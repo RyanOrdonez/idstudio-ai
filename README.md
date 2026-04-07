@@ -65,10 +65,10 @@ IDStudio.Ai/
 │   │   ├── clients/         # Client management (CRUD)
 │   │   ├── files/           # File management (CRUD + storage)
 │   │   ├── settings/        # Account & subscription settings
-│   │   ├── mood-boards/     # Mood board builder (coming soon)
-│   │   ├── sourcing/        # Product sourcing & FF&E (coming soon)
-│   │   ├── financials/      # Invoicing & expenses (coming soon)
-│   │   └── analytics/       # Business metrics (coming soon)
+│   │   ├── sourcing/        # Product sourcing & clipped product library (built)
+│   │   ├── mood-boards/     # Mood board builder (placeholder — see BUILD-PLAN.md)
+│   │   ├── financials/      # Invoicing & expenses (placeholder — see BUILD-PLAN.md)
+│   │   └── analytics/       # Business metrics (placeholder — see BUILD-PLAN.md)
 │   ├── login/               # Sign in
 │   ├── signup/              # Create account
 │   ├── api/                 # API routes (chat, assistant, stripe)
@@ -101,55 +101,15 @@ IDStudio.Ai/
 - **Motion**: Framer Motion fade/slide transitions on page load
 - **Layout**: Collapsible sidebar + persistent AI chat panel on the right
 
-## Current Status
+## Build Plan
 
-### Completed
-- [x] Next.js 14 with App Router
-- [x] Design system (warm neutrals, Playfair + Satoshi, shadcn/ui, Framer Motion)
-- [x] Dashboard layout with collapsible sidebar + persistent AI chat panel
-- [x] Supabase auth (signup with success flow, login, session management)
-- [x] Database schema with RLS (profiles, clients, projects, files, subscriptions)
-- [x] Claude API integration (chat, assistant, document generation)
-- [x] Google Gemini integration (design concept image generation)
-- [x] Projects page — full CRUD
-- [x] Clients page — full CRUD
-- [x] Files page — full CRUD with Supabase Storage
-- [x] Settings page — profile, subscription, billing
-- [x] Reskinned login & signup pages with polished UX
-- [x] AI credit system — weekly credits, model selector (Haiku/Sonnet/Opus), credit bar, upgrade paywall
-- [x] AI tool system — Claude function calling for create/update/list clients, projects, files
-- [x] Draggable chat panel resize (340px–700px)
-- [x] Auto-expanding textarea input with reset on send
-- [x] Duplicate client prevention (list_clients before create, update_client tool)
-- [x] Server-side route protection via middleware (cookie-based Supabase client, redirect-after-login on `/dashboard`, `/projects`, `/clients`, `/files`)
+**Single source of truth: [BUILD-PLAN.md](./BUILD-PLAN.md).**
 
-### AI Chat — Future Revisions
-- [ ] **Chat memory** — persist conversation history across sessions (Supabase storage per user)
-- [ ] **Credit deduction by tier** — differentiate actual credit costs when Haiku/Opus model access is available on Anthropic account
-- [ ] **Upgrade button** — prominent "Get more credits" CTA in chat when credits are low, linking to billing/plans page
-- [ ] **Chat history panel** — expandable sidebar (right side) showing past conversations, searchable, click to reload
-- [ ] **Project tools** — add/edit projects via chat (create_project, update_project, add phases/tasks)
-- [ ] **Email drafting tool** — dedicated email composer in chat with send-ready formatting, subject lines, follow-up templates
-- [ ] **Mood board tool** — generate mood board concepts via chat, save to mood boards section
-- [ ] **Proposal generation** — create client proposals with scope, timeline, budget breakdown via chat
-- [ ] **Budget tool** — generate and edit project budgets conversationally
-- [ ] **Sourcing tool** — product search/recommendations with trade vendor suggestions
-- [ ] **Email account integration** — connect user's email (Gmail/Outlook OAuth) so AI can read emails for project context, draft replies, and track client communication
+That file lists what's done, what's broken, and the strict linear order for everything that comes next. No phases, no modules, no weeks — top of "Next Up" is the next task.
 
-### In Progress (Phase 3)
-- [ ] Project phases, tasks, and kanban board
-- [ ] Mood board builder (drag-and-drop)
-- [ ] Client portal (share progress with clients)
-- [ ] Product sourcing & FF&E schedules
-- [ ] Financial tools — invoicing, expense tracking, budgets
+For long-form product vision and context, see [PRODUCT-PLAN-archive.md](./PRODUCT-PLAN-archive.md) (archived — do not use for build ordering).
 
-### Planned (Phase 4)
-- [ ] Marketing site & onboarding flow
-- [ ] Mobile-responsive refinements
-- [ ] Dark mode
-- [ ] Pricing tier enforcement ($49 / $149 / $299)
-- [ ] Email notifications (Resend)
-- [ ] Team collaboration features
+For long-term strategic feature ideas, see [FUTURE-GROWTH-FEATURES-archive.md](./FUTURE-GROWTH-FEATURES-archive.md) (post-launch only).
 
 ## Branches
 

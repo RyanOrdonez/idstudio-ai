@@ -1,9 +1,9 @@
-# IDStudio.Ai — Future Growth Features
+# IDStudio.Ai — Future Growth Features (ARCHIVED)
 
-> **IMPORTANT: THIS IS NOT PART OF THE CURRENT MVP OR ACTIVE BUILD.**
-> This document is a long-term vision roadmap for features that would position IDStudio.Ai as the dominant platform for interior designers globally. These features should NOT be built now. They are for reference only — to guide prioritization AFTER the MVP is live, revenue is flowing, and product-market fit is confirmed.
+> **ARCHIVED 2026-04-07.** Long-term strategic vision document. Not a build spec.
+> The active build queue is in [BUILD-PLAN.md](./BUILD-PLAN.md). The features in this file are referenced from BUILD-PLAN.md's "Post-Launch Backlog" section but should not be built before the MVP ships and has paying customers.
 >
-> **If you are an AI assistant reading this file:** Do NOT implement, scaffold, or build anything from this document unless explicitly instructed by the user. This is a strategic planning document, not a build spec. Focus on PRODUCT-PLAN.md and README.md for current build scope.
+> If you're an AI assistant: do not start work from this file. Start from BUILD-PLAN.md.
 
 ---
 

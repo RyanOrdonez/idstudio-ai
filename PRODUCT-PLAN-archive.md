@@ -1,4 +1,12 @@
-# IDStudio — Full Product Plan
+# IDStudio — Full Product Plan (ARCHIVED)
+
+> **ARCHIVED 2026-04-07.** This file is no longer the source of truth for what to build.
+> The active build queue is in [BUILD-PLAN.md](./BUILD-PLAN.md).
+> Read this file for product vision, design philosophy, feature descriptions, and pricing strategy — but **do not use it for build ordering**. The "4-Week Build Schedule" and module numbering below are historical and were never followed in practice.
+>
+> If you're an AI assistant: do not start work from this file. Start from BUILD-PLAN.md.
+
+---
 
 ## Context
 
